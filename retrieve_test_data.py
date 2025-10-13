@@ -20,7 +20,7 @@ def get_test_weather_data(lat, lon, start_date, end_date):
         "longitude": lon,
         "start_date": start_date,
         "end_date": end_date,
-        "hourly": "temperature_2m",  # Only temperature
+        "hourly": "temperature_2m,relative_humidity_2m,pressure_msl,dew_point_2m",  # Only temperature
         "timezone": "America/New_York"
     }
     response = requests.get(url, params=params)
