@@ -1,14 +1,10 @@
 import requests
 import pandas as pd
 
-# Open meteo api for training and test set data retrieval
+# Open meteo api for training set data retrieval
 # https://open-meteo.com/
 
-def get_test_weather_data(lat, lon, start_date, end_date):
-    """
-    Retrieve actual temperature observations for the test period.
-    This serves as the ground truth for model evaluation.
-    """
+def get_training_weather_data(lat, lon, start_date, end_date):
     url = "https://archive-api.open-meteo.com/v1/archive"
 
     # Retrieve features you want to train your model with
@@ -20,7 +16,7 @@ def get_test_weather_data(lat, lon, start_date, end_date):
         "longitude": lon,
         "start_date": start_date,
         "end_date": end_date,
-        "hourly": "temperature_2m,relative_humidity_2m,pressure_msl,dew_point_2m",  # Only temperature
+        "hourly": "temperature_2m,relative_humidity_2m,pressure_msl,dew_point_2m",
         "timezone": "America/New_York"
     }
     response = requests.get(url, params=params)
@@ -30,9 +26,9 @@ def get_test_weather_data(lat, lon, start_date, end_date):
 
     return response.json()
 
-def save_test_set(data, output_path):
+def save_training_set(data, output_path):
     """
-    Save test set data to CSV with summary information.
+    Save train set data to CSV with summary information.
     """
     # Extract hourly data
     df = pd.DataFrame(data['hourly'])
@@ -43,7 +39,7 @@ def save_test_set(data, output_path):
 
     # Display summary
     print(f"\n{'='*60}")
-    print(f"TEST SET DATA RETRIEVED")
+    print(f"TRAIN SET DATA RETRIEVED")
     print(f"{'='*60}")
     print(f"Records: {len(df)} hourly observations")
     print(f"Location: RDU Airport ({data['latitude']}, {data['longitude']})")
@@ -52,17 +48,9 @@ def save_test_set(data, output_path):
     print(f"Last hour:  {last_time}")
     print(f"{'='*60}\n")
 
-    # Verify we have exactly 336 hours (14 days * 24 hours)
-    # Sep 17 00:00 through Sep 30 23:00 = 14 days × 24 hours = 336 hours
-    expected_hours = 14 * 24
-    if len(df) == expected_hours:
-        print(f"✓ Correct number of hours: {expected_hours}")
-    else:
-        print(f"⚠ Warning: Expected {expected_hours} hours, got {len(df)}")
-
     # Verify first and last timestamps
-    if first_time == "2025-09-17T00:00" and last_time == "2025-09-30T23:00":
-        print(f"✓ Date range verified: Sep 17 00:00 - Sep 30 23:00")
+    if first_time == "2024-08-16T00:00" and last_time == "2025-08-16T23:00":
+        print(f"✓ Date range verified")
     else:
         print(f"⚠ Warning: Unexpected date range!")
 
@@ -78,19 +66,18 @@ def save_test_set(data, output_path):
 
     # Save to CSV
     df.to_csv(output_path, index=False)
-    print(f"\n✓ Test set saved to: {output_path}")
+    print(f"\n✓ Train set saved to: {output_path}")
 
 if __name__ == "__main__":
     # RDU Airport coordinates
     RDU_LAT = 35.8776
     RDU_LON = -78.7875
 
-    # Test period: Sep 17 00:00 - Sep 30 23:00, 2025
-    START_DATE = "2025-09-17"
-    END_DATE = "2025-09-30"
+    START_DATE = "2024-08-16"
+    END_DATE = "2025-08-16"
 
     print(f"\nRetrieving test set data from Open-Meteo API...")
-    print(f"Target: Sep 17, 2025 00:00 through Sep 30, 2025 23:00 (336 hours)")
+    print(f"Test: Sep 16, 2024 00:00 through Sep 16, 2025 23:00")
 
-    data = get_test_weather_data(RDU_LAT, RDU_LON, START_DATE, END_DATE)
-    save_test_set(data, "data/raw/rdu_test_set_2025-09-17_to_2025-09-30.csv")
+    data = get_training_weather_data(RDU_LAT, RDU_LON, START_DATE, END_DATE)
+    save_training_set(data, "data/raw/linear_regression_test_set_2024-08-16_to_2025-08-16.csv")
