@@ -85,6 +85,9 @@ Open each notebook in Jupyter and run all cells:
 - `LSTM.ipynb` - Deep learning approach
 - `RandomForest.ipynb` - Needs improvement
 
+## Citations:
+GPT4o, Claude Sonnet 4 models were used to assist with ideation and code help + refinement.
+
 ## License
 
 MIT License - Free to use for educational and research purposes.
