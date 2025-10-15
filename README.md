@@ -1,144 +1,90 @@
-# RDU Hourly Temperature Forecast (Two Weeks Ahead)
+# RDU 14-Day Temperature Forecast
 
-**Goal:** Predict hourly air temperature at **Raleigh–Durham International Airport (RDU)** for  
-**00:00 Sep 17 – 23:00 Sep 30 (14 days)** under strict **no-leakage rules**.  
-Each model must make all hourly predictions **before** the test window begins.
+Predict hourly temperature at Raleigh-Durham Airport (RDU) for **Sep 17-30, 2025** (336 hours) using machine learning models trained on historical data.
 
+## Quick Start
 
-## 1. Project Overview
-This project develops and evaluates machine learning models for short-term to mid-range temperature forecasting.  
-We use only data **available prior to Sep 17 00:00**, ensuring a realistic “future prediction” setup.  
-The pipeline includes feature construction, model training, offline evaluation, and a one-shot inference script that produces the final forecast CSV.
-
-
-## 2. Key Rules
-- Any data source is allowed **only if issued before the test window (≤ Sep 16 23:59)**.  
-- You must include **one Linear Regression model** and **at least one other model**.  
-- No actual observations from Sep 17–30 can be used as features.  
-- All predictions must cover every hour of the test period once and only once.
-
-
-## 3. Folder Structure
-```
-project-rdu-temp-forecast-14day/
-├── data/
-│   ├── raw/                         # Raw station observations up to Sep 16
-│   ├── external/                    # Pre-issued forecasts or external data
-│   └── processed/                   # Finalized training & inference features
-│       ├── sample_train.csv
-│       ├── sample_infer.csv
-│       ├── train_full.csv
-│       └── infer_features_2025-09-17_to_09-30.csv
-│
-├── src/
-│   ├── features/
-│   │   └── build_features.py        # Build features for training/inference
-│   ├── models/
-│   │   ├── lr_model.py              # Linear Regression baseline
-│   │   ├── model_a.py               # Non-linear model A (e.g. XGBoost)
-│   │   └── model_b.py               # Non-linear model B (optional)
-│   ├── eval/
-│   │   └── evaluate.py              # Evaluate models & produce plots
-│   └── predict/
-│       └── make_forecast.py         # Generate forecast for Sep 17–30
-│
-├── models/                          # Saved model artifacts (.pkl)
-├── submissions/                     # Final forecast submissions
-├── reports/                         # Figures / slides / writeup
-├── FEATURE_SPEC.md                  # Feature definitions and units
-├── DATA_SOURCES.md                  # Data provenance notes
-├── requirements.txt                 # Dependencies
-├── Makefile                         # Shortcut commands
-└── README.md                        # Project documentation
-```
-
-
-## 4. No-Leakage Policy
-1. **Training data** must end ≤ Sep 16 23:59 (local time or UTC — be consistent).  
-2. **Inference features** for Sep 17–30 must be available at Day 0 (Sep 17 00:00).  
-3. If additional weather variables are used, only their **forecasts issued before Sep 17** may appear.  
-4. The code performs lightweight safety checks to ensure these constraints.
-
-
-## 5. Quickstart
 ```bash
-# 0) Environment setup
+# Setup environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 1) Build features
-python -m src.features.build_features --mode train \
-    --out data/processed/train_full.csv
-python -m src.features.build_features --mode infer \
-    --out data/processed/infer_features_2025-09-17_to_09-30.csv
+# Fetch training data (2020-2025)
+python src/data/api_xgb_data.py
 
-# 2) Train models
-python -m src.models.lr_model  --train data/processed/train_full.csv --save models/lr.pkl
-python -m src.models.model_a   --train data/processed/train_full.csv --save models/model_a.pkl
-python -m src.models.model_b   --train data/processed/train_full.csv --save models/model_b.pkl
+# Build features
+python src/data/build_features.py
 
-# 3) Evaluate models (overall + by-horizon)
-python -m src.eval.evaluate \
-    --train data/processed/train_full.csv \
-    --models models/lr.pkl models/model_a.pkl models/model_b.pkl \
-    --out reports/figures
-
-# 4) Make forecast (choose best model)
-python -m src.predict.make_forecast \
-    --features data/processed/infer_features_2025-09-17_to_09-30.csv \
-    --model models/model_a.pkl \
-    --out submissions/rdu_temp_2025-09-17_to_09-30.csv
+# Open notebooks to train and evaluate models
+jupyter notebook
 ```
 
-## 6. Models
-- **Linear Regression (Baseline):**  
-  Uses regularized Ridge or Lasso regression with cyclical time features (e.g., sine/cosine encodings for hour and day-of-year), and lagged/rolling statistics (e.g., `temp_lag_24`, `roll_mean_24`).
+## Project Structure
 
-- **Model A / Model B (Non-linear Models):**  
-  Built using algorithms such as **XGBoost**, **LightGBM**, or **Random Forest**.  
-  Optionally, a simple **LSTM or RNN** may be tested for sequential dependencies.
+```
+rdu-temp-forecast-14day/
+├── data/
+│   ├── raw/              # Raw API data
+│   ├── staging/          # Standardized data
+│   ├── processed/        # Feature-engineered datasets
+│   └── results/          # Model predictions
+├── src/data/             # Data fetching & feature engineering
+├── models/               # Saved models (.pkl)
+├── linear_regression_model.ipynb
+├── xgboost_model.ipynb
+├── RandomForest.ipynb
+└── LSTM.ipynb
+```
 
-All models are trained using identical feature columns for fair comparison.  
-Hyperparameters and feature selections can be tuned independently.  
-The final report and presentation include both performance comparison and discussion of model limitations.
+## Models Implemented
 
+| Model | Test MAE | Test RMSE | Test R² | Status |
+|-------|----------|-----------|---------|--------|
+| **Linear Regression** | 0.56°C | 0.70°C | 0.97 | ✅ Best for deployment |
+| **XGBoost** | 3.09°C | 3.80°C | 0.08 | ⚠️ Lag dependency issue |
+| **LSTM** | 2.83°C | 3.64°C | 0.85 | ✅ Works but less accurate |
+| **Random Forest** | 4.01°C | 4.72°C | -0.42 | ✅ Works but less accurate |
 
-## 7. Evaluation
-- **Metrics:**  
-  - Mean Absolute Error (**MAE**)  
-  - Root Mean Squared Error (**RMSE**)  
-  - Horizon-based evaluation:  
-    - **D1–2:** near-term (first 48 hours)  
-    - **D3–7:** mid-term (next 5 days)  
-    - **D8–14:** long-term (final week)
+**Note:** XGBoost achieves 0.44°C MAE on validation but degrades to 3.09°C on realistic test due to unavailable lag features during true forecasting.
 
-- **Visualizations:**  
-  - Error vs. forecast-horizon curve  
-  - Model comparison bar charts  
-  - Optional residual plots or scatter plots  
+## Key Features
 
-All evaluation artifacts are saved under `reports/figures/`,  
-including plots and a summary metrics table (`metrics.csv`).
+- **Time features:** Hour (sin/cos), day of year (sin/cos), day of week, weekend
+- **Temperature lags:** 1h, 24h, 48h, 72h, 168h (past observations)
+- **Rolling statistics:** Mean and std over 24h and 168h windows
+- **Weather features:** Humidity, pressure, dew point (Linear Regression only)
 
+## Data Source
 
-## 8. Forecast Output Format
-The final forecast is saved as:
+- **API:** [Open-Meteo](https://open-meteo.com/) historical weather archive
+- **Location:** RDU Airport (35.8776°N, 78.7875°W)
+- **Training period:** Jan 2020 - Sep 16, 2025
+- **Test period:** Sep 17-30, 2025 (336 hours)
 
-**File:** `submissions/rdu_temp_2025-09-17_to_09-30.csv`
+## No-Leakage Rules
 
-**Structure:**
+1. Training data ends at **Sep 16, 2025 23:00**
+2. Test data (Sep 17-30) is never used for training
+3. Temporal split: earlier data for training, later for validation
+4. No shuffling to simulate real forecasting conditions
 
-- One row per hour → **336 rows total** (14 days × 24 hours).  
-- Columns:
-  - `timestamp` – ISO 8601 format (`YYYY-MM-DDTHH:MM:SS`)  
-  - `temp_pred` – predicted temperature value  
-- Temperature unit and timezone are detailed in `FEATURE_SPEC.md`.
+## Critical Finding
 
+**Lag Feature Dependency Issue:**
+- XGBoost relies heavily on recent temperature observations (e.g., `temp_lag_1`, `temp_lag_24`)
+- In real deployment, these features are unavailable for the 14-day forecast window
+- Using historical climatology as a proxy degrades performance significantly (0.44°C → 3.09°C MAE)
+- **Linear Regression** doesn't use lag features and is more robust for deployment
 
-## 9. License
-This project is released under the **MIT License**.  
-You are free to use, modify, and share it for educational or research purposes.
+## Running the Models
 
----
+Open each notebook in Jupyter and run all cells:
+- `linear_regression_model.ipynb` - Best for real forecasting
+- `xgboost_model.ipynb` - Best validation performance (if lags available)
+- `LSTM.ipynb` - Deep learning approach
+- `RandomForest.ipynb` - Needs improvement
 
-*Clean, reproducible, and leakage-free forecasting —  
-a professional-grade ML workflow for time-series prediction.*
+## License
+
+MIT License - Free to use for educational and research purposes.
